@@ -1,0 +1,946 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agenda de Eventos</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23161B26' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='4' width='18' height='18' rx='2'/%3E%3Cpath d='M16 2v4M8 2v4M3 10h18'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#F4F5F8; --surface:#FFFFFF; --surface-2:#F8F9FB; --line:#E4E7EE; --line-strong:#D3D8E2;
+  --text:#161B26; --text-2:#525B6E; --text-3:#8A93A6;
+  --accent:#161B26; --today:#E8590C; --today-soft:#FFF1E8;
+  --ok:#1F8A4C; --err:#C2332D; --err-soft:#FDECEB; --warn:#9A6400; --warn-soft:#FFF6E0;
+  --radius:14px; --radius-sm:9px;
+  --shadow:0 1px 2px rgba(22,27,38,.04),0 4px 16px rgba(22,27,38,.05);
+  --lane:22px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font-family:"DM Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-size:14px;line-height:1.4;-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;cursor:pointer}
+.hidden{display:none!important}
+
+/* ---------- Topo ---------- */
+.topbar{position:sticky;top:0;z-index:30;background:rgba(255,255,255,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--line);
+  display:flex;align-items:center;gap:20px;padding:12px 28px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:12px;min-width:0}
+.logo{width:36px;height:36px;border-radius:10px;background:var(--text);color:#fff;display:grid;place-items:center;font-weight:700;font-size:13px;letter-spacing:.5px}
+.brand h1{font-size:16px;margin:0;font-weight:700;letter-spacing:-.2px}
+.brand p{margin:0;font-size:12px;color:var(--text-3)}
+.tabs{display:flex;gap:4px;background:var(--surface-2);border:1px solid var(--line);padding:4px;border-radius:12px;margin-left:12px}
+.tabs button{border:0;background:transparent;padding:7px 18px;border-radius:8px;font-weight:600;color:var(--text-2);display:flex;align-items:center;gap:8px}
+.tabs button.active{background:var(--surface);color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.tabs svg{width:16px;height:16px}
+.sync{margin-left:auto;display:flex;align-items:center;gap:12px}
+.sync-info{font-size:12px;color:var(--text-2);display:flex;align-items:center;gap:7px;text-align:right}
+.sync-info .dot{width:8px;height:8px;border-radius:50%;background:var(--ok);flex:none}
+.sync-info.err .dot{background:var(--err)}
+.sync-info.loading .dot{background:var(--text-3);animation:pulse 1s infinite}
+@keyframes pulse{50%{opacity:.3}}
+.btn-sync{display:flex;align-items:center;gap:8px;border:0;background:var(--text);color:#fff;padding:9px 16px;border-radius:10px;font-weight:600;white-space:nowrap}
+.btn-sync:hover{background:#2A3142}
+.btn-sync:disabled{opacity:.65;cursor:progress}
+.btn-sync svg{width:16px;height:16px}
+.btn-sync.spin svg{animation:spin .9s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.banner{margin:16px 28px 0;padding:12px 16px;border-radius:var(--radius-sm);display:flex;gap:12px;align-items:center;font-size:13px}
+.banner.err{background:var(--err-soft);color:var(--err);border:1px solid #F5C7C4}
+.banner.warn{background:var(--warn-soft);color:var(--warn);border:1px solid #F1DDA6}
+.banner b{font-weight:700}
+.banner button{margin-left:auto;border:1px solid currentColor;background:transparent;border-radius:8px;padding:5px 12px;font-weight:600;color:inherit;white-space:nowrap}
+
+main{padding:20px 28px 40px;max-width:1600px;margin:0 auto}
+.tab{display:none}.tab.active{display:block}
+
+/* ---------- Cards / KPIs ---------- */
+.kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-bottom:18px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
+.kpi{padding:16px 18px;display:flex;flex-direction:column;gap:4px;min-width:0}
+.kpi .lbl{font-size:12px;color:var(--text-3);font-weight:600;text-transform:uppercase;letter-spacing:.4px}
+.kpi .val{font-size:26px;font-weight:700;letter-spacing:-.5px}
+.kpi .sub{font-size:13px;color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* ---------- Volume por analista ---------- */
+.vol-head{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin:4px 0 10px}
+.vol-head h3{margin:0;font-size:17px;font-weight:700;letter-spacing:-.2px}
+.vol-head h3 span{font-size:13px;font-weight:500;color:var(--text-3)}
+.vol-pico{margin-left:auto;font-size:12.5px;color:var(--text-2)}
+.vol-pico b{color:var(--text)}
+.vol-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:20px}
+.vol{padding:14px 16px 16px;display:flex;flex-direction:column;gap:8px;text-align:left;border:1px solid var(--line);font:inherit}
+button.vol:hover{border-color:var(--line-strong)}
+.vol.off{opacity:.4}
+.vol .nm{display:flex;align-items:center;gap:8px;font-weight:700;font-size:14px}
+.vol .nm i{width:11px;height:11px;border-radius:50%}
+.vol .row{display:flex;align-items:flex-end;gap:8px;min-height:38px}
+.vol .big{font-size:34px;font-weight:700;line-height:.9;letter-spacing:-1px}
+.vol .desc{font-size:12.5px;color:var(--text-2);line-height:1.35}
+.vol .next{font-size:12px;color:var(--text-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vol .track{height:7px;border-radius:99px;background:#EEF0F4;overflow:hidden;margin-top:2px}
+.vol .fill{height:100%;border-radius:99px}
+.vol{min-width:0}
+@media (max-width:760px){ .vol-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px} .vol{padding:12px} .vol .big{font-size:28px} .vol-pico{margin-left:0;width:100%} }
+
+/* ---------- Barra de controle ---------- */
+.toolbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.nav{display:flex;align-items:center;gap:6px}
+.icon-btn{width:34px;height:34px;border-radius:9px;border:1px solid var(--line-strong);background:var(--surface);display:grid;place-items:center}
+.icon-btn:hover{background:var(--surface-2)}
+.icon-btn svg{width:16px;height:16px}
+.ghost-btn{height:34px;padding:0 14px;border-radius:9px;border:1px solid var(--line-strong);background:var(--surface);font-weight:600;font-size:13px}
+.ghost-btn:hover{background:var(--surface-2)}
+.period-title{font-size:20px;font-weight:700;letter-spacing:-.3px;margin:0 8px;min-width:170px}
+.legend{display:flex;gap:6px;flex-wrap:wrap;margin-left:auto}
+.chip{display:inline-flex;align-items:center;gap:7px;padding:5px 11px 5px 9px;border-radius:999px;border:1px solid var(--line);background:var(--surface);font-size:13px;font-weight:600;color:var(--text)}
+.chip .sw{width:10px;height:10px;border-radius:3px;flex:none}
+.chip .n{color:var(--text-3);font-weight:600}
+button.chip:hover{border-color:var(--line-strong)}
+.chip.off{opacity:.38}
+.chip.off .sw{background:var(--text-3)!important}
+.toggle{display:inline-flex;align-items:center;gap:7px;font-size:13px;color:var(--text-2);user-select:none;cursor:pointer}
+.toggle input{accent-color:var(--text);width:15px;height:15px;margin:0}
+
+/* ---------- Calendário mensal (Eventos) ---------- */
+.ev-layout{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:18px;align-items:start}
+.month{overflow:hidden}
+.wk-head{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));border-bottom:1px solid var(--line);background:var(--surface-2)}
+.wk-head div{padding:9px 10px;font-size:12px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.5px}
+.week{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));row-gap:3px;position:relative;border-bottom:1px solid var(--line);min-height:118px}
+.week:last-child{border-bottom:0}
+.day{grid-row:1 / -1;border-right:1px solid var(--line);position:relative;cursor:default}
+.day:nth-child(7){border-right:0}
+.day.weekend{background:#FAFBFC}
+.day.out{background:#F6F7F9}
+.day.out .dnum{color:#B5BCCA}
+.dnum{display:inline-grid;place-items:center;min-width:26px;height:26px;margin:4px 0 0 6px;border-radius:50%;font-size:13px;font-weight:600;color:var(--text-2)}
+.day.today{background:var(--today-soft)}
+.day.today .dnum{background:var(--today);color:#fff}
+.bar{position:relative;z-index:2;margin:0 4px;height:var(--lane);border-radius:6px;padding:0 8px;display:flex;align-items:center;gap:6px;
+  font-size:12px;font-weight:600;color:#fff;white-space:nowrap;overflow:hidden;cursor:pointer;border:0;text-align:left;min-width:0}
+.bar .t{overflow:hidden;text-overflow:ellipsis;min-width:0}
+.bar .who{opacity:.85;font-weight:500;flex:none}
+.bar.cont-l{margin-left:0;border-top-left-radius:0;border-bottom-left-radius:0}
+.bar.cont-r{margin-right:0;border-top-right-radius:0;border-bottom-right-radius:0}
+.bar.join-l{margin-left:0;border-top-left-radius:0;border-bottom-left-radius:0}
+.bar.join-r{margin-right:0;border-top-right-radius:0;border-bottom-right-radius:0}
+.bar.phase{font-weight:700;font-size:11px;color:var(--c);box-shadow:inset 0 0 0 1.5px var(--c);
+  background-image:repeating-linear-gradient(135deg,rgba(255,255,255,.7) 0 3px,transparent 3px 7px)}
+.bar:hover{filter:brightness(.94)}
+.bar.past{opacity:.55}
+.more{z-index:2;margin:0 4px;border:0;background:transparent;text-align:left;font-size:11.5px;font-weight:700;color:var(--text-2);padding:2px 6px;border-radius:6px;height:20px}
+.more:hover{background:var(--surface-2);color:var(--text)}
+
+/* Agenda lateral */
+.agenda{padding:6px 0;position:sticky;top:84px;max-height:calc(100vh - 110px);display:flex;flex-direction:column}
+.agenda h3,.panel-h{font-size:13px;font-weight:700;margin:0;padding:12px 18px 10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text-3)}
+.agenda-list{overflow:auto;padding:0 10px 10px}
+.ag{display:flex;gap:12px;padding:10px 8px;border-radius:10px;cursor:pointer;align-items:flex-start;border:0;background:transparent;width:100%;text-align:left}
+.ag:hover{background:var(--surface-2)}
+.ag .date{flex:none;width:42px;text-align:center;border-radius:9px;padding:5px 0;background:var(--surface-2);border:1px solid var(--line)}
+.ag .date b{display:block;font-size:17px;line-height:1.1}
+.ag .date span{font-size:10.5px;color:var(--text-3);font-weight:700;text-transform:uppercase}
+.ag .info{min-width:0;flex:1}
+.ag .nm{font-weight:700;font-size:13.5px;display:flex;align-items:center;gap:6px}
+.ag .meta{font-size:12px;color:var(--text-2);margin-top:2px}
+.ag .stripe{width:4px;align-self:stretch;border-radius:4px;flex:none}
+.ag.past{opacity:.5}
+.tag{display:inline-block;font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:999px;text-transform:uppercase;letter-spacing:.3px;vertical-align:middle;white-space:nowrap}
+.tag.now{background:var(--today-soft);color:var(--today)}
+.tag.soon{background:#EAF2FF;color:#2456A6}
+.tag.done{background:#EFF1F5;color:var(--text-3)}
+.who-chip{display:inline-flex;align-items:center;gap:5px;font-weight:600}
+.who-chip i{width:8px;height:8px;border-radius:50%;display:inline-block}
+
+.empty{padding:28px 18px;text-align:center;color:var(--text-3);font-size:13px}
+.empty b{display:block;color:var(--text-2);font-size:14px;margin-bottom:2px}
+
+.notes{margin-top:16px;padding:12px 16px;font-size:12.5px;color:var(--warn);background:var(--warn-soft);border:1px solid #F1DDA6;border-radius:var(--radius-sm)}
+.notes summary{cursor:pointer;font-weight:700}
+.notes ul{margin:8px 0 0;padding-left:18px}
+
+/* ---------- Férias ---------- */
+.vac-cards{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.6fr);gap:14px;margin-bottom:18px}
+.vac-card{padding:0 0 8px}
+.vac-card .panel-h{display:flex;align-items:center;gap:8px}
+.vac-card .panel-h .count{margin-left:auto;background:var(--surface-2);border:1px solid var(--line);color:var(--text-2);border-radius:999px;padding:1px 9px;font-size:12px;text-transform:none;letter-spacing:0}
+.person{display:flex;align-items:center;gap:12px;padding:10px 18px;border-top:1px solid var(--line)}
+.person:first-of-type{border-top:0}
+.avatar{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:700;font-size:13px;flex:none}
+.person .info{min-width:0;flex:1}
+.person .nm{font-weight:700;font-size:14px}
+.person .meta{font-size:12.5px;color:var(--text-2)}
+.person .side{text-align:right;flex:none}
+.person .big{font-size:20px;font-weight:700;letter-spacing:-.3px;line-height:1}
+.person .small{font-size:11.5px;color:var(--text-3);font-weight:600}
+.person.first{background:linear-gradient(90deg,#FFF7F1,transparent 70%)}
+.next-list{max-height:330px;overflow:auto}
+
+.sem-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.mini{padding:14px 14px 12px}
+.mini h4{margin:0 0 10px;font-size:15px;font-weight:700;display:flex;align-items:baseline;gap:8px}
+.mini h4 span{font-size:12px;font-weight:600;color:var(--text-3)}
+.mini-head,.mini-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr))}
+.mini-head div{font-size:11px;font-weight:700;color:var(--text-3);text-align:center;padding-bottom:6px}
+.mc{min-height:44px;border-top:1px solid #EEF0F4;padding:3px 0 4px;display:flex;flex-direction:column;align-items:stretch;gap:2px;position:relative}
+.mc .n{font-size:12px;font-weight:600;color:var(--text-2);text-align:center;height:22px;line-height:22px;width:22px;margin:0 auto;border-radius:50%}
+.mc.out .n{color:transparent}
+.mc.out{border-top-color:transparent}
+.mc.weekend .n{color:var(--text-3)}
+.mc.today .n{background:var(--today);color:#fff}
+.mc.has{cursor:pointer}
+.mc.has .n{color:var(--text)}
+.mc .strip{height:6px}
+.mc .strip.on{background:var(--c)}
+.mc .strip.on.s{border-top-left-radius:4px;border-bottom-left-radius:4px;margin-left:3px}
+.mc .strip.on.e{border-top-right-radius:4px;border-bottom-right-radius:4px;margin-right:3px}
+.mc .strip.open{background:repeating-linear-gradient(90deg,var(--c) 0 4px,transparent 4px 7px);border-radius:4px;margin:0 3px}
+.mc:hover .strip.on{filter:brightness(.92)}
+
+.vac-table{margin-top:18px;overflow:hidden}
+.vt-row{display:grid;grid-template-columns:minmax(180px,1.4fr) 1fr 1.4fr .6fr 1fr 1fr;gap:12px;align-items:center;padding:11px 18px;border-top:1px solid var(--line);font-size:13px}
+.vt-row.h{border-top:0;font-size:11.5px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.4px;background:var(--surface-2)}
+.vt-row .nm{display:flex;align-items:center;gap:8px;font-weight:700}
+.vt-row .nm i{width:10px;height:10px;border-radius:3px;flex:none}
+
+/* ---------- Modal / Toast / Loading ---------- */
+.modal{position:fixed;inset:0;background:rgba(15,19,28,.42);z-index:60;display:grid;place-items:center;padding:16px}
+.modal-box{background:var(--surface);border-radius:16px;max-width:440px;width:100%;max-height:85vh;overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,.25)}
+.modal-h{padding:18px 20px 12px;display:flex;gap:12px;align-items:flex-start;border-bottom:1px solid var(--line)}
+.modal-h h3{margin:0;font-size:17px}
+.modal-h p{margin:3px 0 0;color:var(--text-2);font-size:13px}
+.modal-h .x{margin-left:auto;border:0;background:var(--surface-2);width:30px;height:30px;border-radius:8px;font-size:18px;line-height:1;flex:none}
+.modal-b{padding:14px 20px 20px}
+.kv{display:grid;grid-template-columns:120px 1fr;gap:8px 12px;font-size:13.5px}
+.kv dt{color:var(--text-3);font-weight:600}
+.kv dd{margin:0;font-weight:600}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);opacity:0;pointer-events:none;background:var(--text);color:#fff;padding:11px 18px;border-radius:11px;font-weight:600;font-size:13px;z-index:70;transition:.25s;box-shadow:0 8px 30px rgba(0,0,0,.2)}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.toast.err{background:var(--err)}
+.loading-state{padding:80px 20px;text-align:center;color:var(--text-3)}
+.loading-state .sp{width:28px;height:28px;border:3px solid var(--line);border-top-color:var(--text);border-radius:50%;margin:0 auto 12px;animation:spin .8s linear infinite}
+.footnote{margin-top:14px;font-size:12px;color:var(--text-3)}
+
+/* ---------- Responsivo ---------- */
+@media (max-width:1180px){
+  .ev-layout{grid-template-columns:1fr}
+  .agenda{position:static;max-height:none}
+  .sem-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media (max-width:860px){
+  .vac-cards{grid-template-columns:1fr}
+  .vt-row{grid-template-columns:1.4fr 1fr 1fr;row-gap:2px}
+  .vt-row .hide-m{display:none}
+}
+@media (max-width:760px){
+  :root{--lane:7px}
+  .topbar{padding:10px 16px;gap:10px}
+  .tabs{margin-left:0;order:3;width:100%}
+  .tabs button{flex:1;justify-content:center}
+  .sync-info .txt-long{display:none}
+  .btn-sync span{display:none}
+  .btn-sync{padding:9px 11px}
+  .banner{margin:12px 16px 0}
+  main{padding:14px 16px 32px}
+  .kpis{grid-template-columns:1fr 1fr}
+  .kpis .kpi:last-child{grid-column:1 / -1}
+  .kpi .val{font-size:22px}
+  .period-title{font-size:17px;min-width:0}
+  .legend{margin-left:0;width:100%}
+  .week{min-height:64px}
+  .wk-head div{padding:7px 4px;text-align:center;font-size:11px}
+  .dnum{min-width:22px;height:22px;font-size:12px;margin:3px auto 0;display:grid}
+  .bar{margin:0 2px;padding:0;border-radius:3px}
+  .bar .t,.bar .who{display:none}
+  .more{font-size:10px;padding:0 3px;height:16px}
+  .sem-grid{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <div class="logo" aria-hidden="true"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"/></svg></div>
+    <div><h1>Agenda de Eventos</h1><p>Eventos e férias da equipe</p></div>
+  </div>
+  <nav class="tabs" role="tablist">
+    <button class="active" data-tab="eventos" role="tab">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>Eventos</button>
+    <button data-tab="ferias" role="tab">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>Férias</button>
+  </nav>
+  <div class="sync">
+    <div class="sync-info loading" id="syncInfo"><span class="dot"></span><span id="syncLabel">Carregando dados…</span></div>
+    <button class="btn-sync" id="btnSync" title="Sincronizar com a planilha agora">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+      <span>Atualizar agora</span>
+    </button>
+  </div>
+</header>
+
+<div id="banner" class="banner hidden"></div>
+
+<main>
+  <div id="loading" class="loading-state"><div class="sp"></div>Carregando dados da planilha…</div>
+
+  <!-- ================= ABA EVENTOS ================= -->
+  <section id="tab-eventos" class="tab" role="tabpanel">
+    <div class="kpis" id="evKpis"></div>
+    <div class="vol-head"><h3>Volume por analista <span>· eventos a partir de hoje</span></h3><span class="vol-pico" id="evPico"></span></div>
+    <div class="vol-grid" id="evVolume"></div>
+    <div class="toolbar">
+      <div class="nav">
+        <button class="icon-btn" id="evPrev" aria-label="Mês anterior"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg></button>
+        <button class="icon-btn" id="evNext" aria-label="Próximo mês"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 18l6-6-6-6"/></svg></button>
+        <button class="ghost-btn" id="evToday">Hoje</button>
+      </div>
+      <h2 class="period-title" id="evTitle"></h2>
+      <label class="toggle"><input type="checkbox" id="evPhases" checked> Montagem / desmontagem</label>
+      <div class="legend" id="evLegend"></div>
+    </div>
+    <div class="ev-layout">
+      <div class="card month">
+        <div class="wk-head"><div>Dom</div><div>Seg</div><div>Ter</div><div>Qua</div><div>Qui</div><div>Sex</div><div>Sáb</div></div>
+        <div id="evGrid"></div>
+      </div>
+      <aside class="card agenda">
+        <h3 id="agTitle">Agenda do mês</h3>
+        <div class="agenda-list" id="evAgenda"></div>
+      </aside>
+    </div>
+    <div id="evNotes"></div>
+  </section>
+
+  <!-- ================= ABA FÉRIAS ================= -->
+  <section id="tab-ferias" class="tab" role="tabpanel">
+    <div class="vac-cards">
+      <div class="card vac-card">
+        <div class="panel-h">Em férias agora <span class="count" id="nowCount">0</span></div>
+        <div id="vacNow"></div>
+      </div>
+      <div class="card vac-card">
+        <div class="panel-h">Próximas férias <span class="count" id="nextCount">0</span></div>
+        <div id="vacNext" class="next-list"></div>
+      </div>
+    </div>
+    <div class="toolbar">
+      <div class="nav">
+        <button class="icon-btn" id="vaPrev" aria-label="Semestre anterior"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 18l-6-6 6-6"/></svg></button>
+        <button class="icon-btn" id="vaNext" aria-label="Próximo semestre"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 18l6-6-6-6"/></svg></button>
+        <button class="ghost-btn" id="vaToday">Hoje</button>
+      </div>
+      <h2 class="period-title" id="vaTitle"></h2>
+      <div class="legend" id="vaLegend"></div>
+    </div>
+    <div class="sem-grid" id="vaGrid"></div>
+    <div class="card vac-table" id="vaTable"></div>
+    <p class="footnote">Retorno previsto = primeiro dia útil (seg–sex) após o término. Feriados não são considerados. Períodos tracejados: data de início sem quantidade de dias informada.</p>
+    <div id="vaNotes"></div>
+  </section>
+</main>
+
+<div class="modal hidden" id="modal" role="dialog" aria-modal="true">
+  <div class="modal-box"><div class="modal-h"><div id="mHead"></div><button class="x" id="mClose" aria-label="Fechar">×</button></div><div class="modal-b" id="mBody"></div></div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>window.__SNAPSHOT__={"ok":true,"sincronizadoEm":"2026-10-26T18:35:47.645Z","intervaloHoras":4,"eventos":[{"linha":2,"evento":"Evento:","responsavel":"Responsável:","montagem":"Montagem:","datas":"Datas:","desmontagem":"Desmontagem:"},{"linha":3,"evento":"Best Mídia","responsavel":"Steh","montagem":"29/10/2026","datas":"30/10/2026","desmontagem":"31/10/2026"},{"linha":4,"evento":"Moveleiro","responsavel":"Steh","montagem":"03/11/2026","datas":"04 e 05/11/2026","desmontagem":"06/11/2026"},{"linha":5,"evento":"Golf","responsavel":"Laura","montagem":"","datas":"05 a 08/11/2026","desmontagem":""},{"linha":6,"evento":"Anuário Urbanismo","responsavel":"Mhay","montagem":"","datas":"10/11/2026","desmontagem":""},{"linha":7,"evento":"WTC Fiep","responsavel":"Steh","montagem":"10/11/2026","datas":"11 e 12/11/2026","desmontagem":""},{"linha":8,"evento":"Festival de Dança","responsavel":"Lukas","montagem":"","datas":"14 e 15/11/2026","desmontagem":""},{"linha":9,"evento":"Festche Banda B","responsavel":"Laura","montagem":"","datas":"14 e 15/11/2026","desmontagem":""},{"linha":10,"evento":"Magnetron","responsavel":"Lukas","montagem":"","datas":"14 e 15/11/2026","desmontagem":""},{"linha":11,"evento":"Cãominhada","responsavel":"Laura","montagem":"13/11/2026","datas":"14/11/2026","desmontagem":""},{"linha":12,"evento":"Nataliza","responsavel":"Mhay","montagem":"","datas":"10/11/2026","desmontagem":""},{"linha":13,"evento":"Orgulho da Terra","responsavel":"Mhay","montagem":"","datas":"24/11/2026","desmontagem":""},{"linha":14,"evento":"Top de MKT","responsavel":"Steh","montagem":"","datas":"30/11/2026","desmontagem":""},{"linha":15,"evento":"Treinamento de Mídia","responsavel":"Steh","montagem":"","datas":"04/11/2026","desmontagem":""}],"ferias":[{"linha":1,"nome":"Nome:","area":"Area de atuação:","inicio":"Prox Férias:","dias":"Qnt dias:"},{"linha":2,"nome":"Stephanie Wiggers","area":"Trade Marketing","inicio":"04/01/2027","dias":"10"},{"linha":3,"nome":"Flávia Gnatta","area":"Produtora","inicio":"16/11/2026","dias":"15"},{"linha":4,"nome":"Cristianara Silva","area":"Growth","inicio":"18/01/2027","dias":"15"},{"linha":5,"nome":"Victor Waiss","area":"Growth","inicio":"02/08/2026","dias":"15"},{"linha":6,"nome":"Lana Gillies","area":"Redatora","inicio":"22/03/2027","dias":"15"},{"linha":7,"nome":"Lukas","area":"Comunicação","inicio":"29/09/2026","dias":""},{"linha":8,"nome":"Dayane Ferreira","area":"Criação","inicio":"30/09/2026","dias":""},{"linha":9,"nome":"Artur ","area":"Criação","inicio":"01/10/2026","dias":""},{"linha":10,"nome":"Maria Vitoria Kloss","area":"Estagiária","inicio":"02/10/2026","dias":""},{"linha":11,"nome":"Mhayara Beliziani","area":"Comunicação","inicio":"15/07/2027","dias":"10"},{"linha":12,"nome":"Katiusca","area":"exemplo","inicio":"05/10/2026","dias":""},{"linha":13,"nome":"Auxiliar 1","area":"exemplo","inicio":"06/10/2026","dias":""},{"linha":14,"nome":"Laura","area":"Promo rádios","inicio":"07/10/2026","dias":""}]};</script>
+<script>
+/* =====================================================================
+   1. CONFIGURAÇÃO DE EXIBIÇÃO
+   ===================================================================== */
+const UI_CONFIG = {
+  fuso: 'America/Sao_Paulo',
+  intervaloHoras: 4,
+  // Analistas com cor fixa. "apelidos" = como o nome pode aparecer na planilha.
+  analistas: [
+    { chave:'steh',  rotulo:'Steh',  cor:'#23945A', apelidos:['steh','ste','stephanie','stephanie wiggers'] },
+    { chave:'mhay',  rotulo:'Mhay',  cor:'#7B4BD1', apelidos:['mhay','mhayara','mhayara beliziani'] },
+    { chave:'laura', rotulo:'Laura', cor:'#D23F3A', apelidos:['laura'] },
+    { chave:'lukas', rotulo:'Lukas', cor:'#2D6CD4', apelidos:['lukas','lucas'] }
+  ],
+  // Cores para pessoas que só aparecem na aba Férias (atribuídas em ordem alfabética)
+  coresExtras: ['#C98500','#0E8F84','#D1437F','#E2641C','#8A6145','#5B6A83','#6D8712','#0C86A8','#A0522D','#9B3FA8'],
+  ignorarAreas: ['exemplo'],   // linhas de exemplo da aba de férias
+  maxFaixasDesktop: 4
+};
+
+/* =====================================================================
+   2. UTILITÁRIOS DE DATA — tudo em "número do dia" (UTC), sem fuso
+   ===================================================================== */
+const DAY = 864e5;
+const MESES = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+const MESES_L = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+const SEM = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+const D = {
+  dn(y,m,d){ return Math.round(Date.UTC(y,m-1,d)/DAY); },
+  p(dn){ const t=new Date(dn*DAY); return {y:t.getUTCFullYear(), m:t.getUTCMonth()+1, d:t.getUTCDate(), w:t.getUTCDay()}; },
+  valida(y,m,d){ if(!(m>=1&&m<=12&&d>=1&&y>1900)) return false; return new Date(Date.UTC(y,m-1,d)).getUTCMonth()===m-1; },
+  hoje(){ const s=new Intl.DateTimeFormat('en-CA',{timeZone:UI_CONFIG.fuso,year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+          const [y,m,d]=s.split('-').map(Number); return D.dn(y,m,d); },
+  diasNoMes(y,m){ return new Date(Date.UTC(y,m,0)).getUTCDate(); },
+  addMes(y,m,n){ const t=(y*12+(m-1))+n; return {y:Math.floor(t/12), m:t%12+1}; },
+  dd(n){ return String(n).padStart(2,'0'); },
+  br(dn){ const p=D.p(dn); return D.dd(p.d)+'/'+D.dd(p.m)+'/'+p.y; },
+  curta(dn){ const p=D.p(dn); return D.dd(p.d)+' '+MESES[p.m-1]; },
+  intervalo(a,b){
+    if(a===b) return D.curta(a);
+    const pa=D.p(a), pb=D.p(b);
+    if(pa.m===pb.m && pa.y===pb.y) return D.dd(pa.d)+'–'+D.dd(pb.d)+' '+MESES[pb.m-1];
+    return D.curta(a)+' – '+D.curta(b);
+  },
+  proxDiaUtil(dn){ while([0,6].includes(D.p(dn).w)) dn++; return dn; },
+  quando(n){ return n===0?'hoje':n===1?'amanhã':n===-1?'ontem':(n>0?'em '+n+' dias':'há '+(-n)+' dias'); }
+};
+
+/* =====================================================================
+   3. PARSER DE DATAS DA PLANILHA
+   Aceita: 30/10/2026 · 04 e 05/11/2026 · 05 a 08/11/2026 · 28/12 a 03/01/2027
+           30/11 e 01/12/2026 · 4, 5 e 6/11 · 2026-11-04 · 5 de novembro de 2026
+   Retorna { ok, vazio, ranges:[[ini,fim],...] } com dias contínuos agrupados.
+   ===================================================================== */
+const MES_NOME = {jan:1,fev:2,mar:3,abr:4,mai:5,jun:6,jul:7,ago:8,set:9,out:10,nov:11,dez:12};
+function parseDatas(raw, anoPadrao){
+  let s = String(raw==null?'':raw).toLowerCase().trim();
+  if(!s) return {ok:true, vazio:true, ranges:[]};
+  s = s.replace(/(\d{4})-(\d{1,2})-(\d{1,2})(t[\d:.z+-]*)?/g, (m,y,mo,d)=>d+'/'+mo+'/'+y);
+  s = s.replace(/(\d{1,2})\s*(?:de\s+)?(jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez)[a-zç]*\.?(?:\s*(?:de\s+)?(\d{4}))?/g,
+                (m,d,mo,y)=>d+'/'+MES_NOME[mo]+(y?'/'+y:''));
+  s = s.replace(/(\d)\.(\d)/g,'$1/$2');
+  s = s.replace(/[–—]/g,' > ').replace(/(\d)\s*-\s*(\d)/g,'$1 > $2');
+  s = s.replace(/(^|[\s\d])(até|ate|à|a)(?=[\s\d]|$)/g,'$1 > ');
+  s = s.replace(/(^|[\s\d])e(?=[\s\d]|$)/g,'$1 + ').replace(/[,;&]/g,' + ');
+  const tokens = s.match(/\d{1,2}(?:\/\d{1,2}(?:\/\d{2,4})?)?|[>+]/g);
+  if(!tokens) return {ok:false, ranges:[]};
+
+  const it=[]; let sep='+';
+  tokens.forEach(t=>{
+    if(t==='>'||t==='+'){ sep=t; return; }
+    const p=t.split('/').map(Number);
+    it.push({d:p[0], m:p[1]||null, y:p[2]||null, sep: it.length?sep:null});
+    sep='+';
+  });
+  if(!it.length) return {ok:false, ranges:[]};
+
+  // propaga mês/ano da direita para a esquerda ("04 e 05/11/2026")
+  let m=null, y=null;
+  for(let i=it.length-1;i>=0;i--){
+    const x=it[i];
+    if(x.y){ if(x.y<100) x.y+=2000; y=x.y; } else { x.y=y; x.yInf=true; }
+    if(x.m){ m=x.m; } else { x.m=m; x.mInf=true; }
+  }
+  for(const x of it){ if(!x.y) x.y=anoPadrao; if(!x.m) return {ok:false, ranges:[]}; }
+
+  const ranges=[];
+  for(let i=0;i<it.length;i++){
+    const x=it[i];
+    if(x.sep==='>' && i>0){
+      const a=it[i-1];
+      // virada de mês/ano: "28 a 03/11" → 28/10; "28/12 a 03/01/2027" → 28/12/2026
+      if(D.valida(a.y,a.m,a.d) && D.valida(x.y,x.m,x.d) && D.dn(a.y,a.m,a.d) > D.dn(x.y,x.m,x.d)){
+        if(a.mInf){ const r=D.addMes(a.y,a.m,-1); a.m=r.m; a.y=r.y; }
+        else if(a.yInf){ a.y-=1; }
+        if(D.valida(a.y,a.m,a.d)) ranges[ranges.length-1]=[D.dn(a.y,a.m,a.d), D.dn(a.y,a.m,a.d)];
+      }
+    }
+    if(!D.valida(x.y,x.m,x.d)) return {ok:false, ranges:[]};
+    const dn=D.dn(x.y,x.m,x.d);
+    if(x.sep==='>' && ranges.length){
+      const r=ranges[ranges.length-1];
+      if(dn>=r[0]) r[1]=Math.max(r[1],dn); else ranges[ranges.length-1]=[dn,r[1]];
+    } else ranges.push([dn,dn]);
+  }
+  ranges.sort((a,b)=>a[0]-b[0]);
+  const out=[];
+  ranges.forEach(r=>{ const l=out[out.length-1]; if(l && r[0]<=l[1]+1) l[1]=Math.max(l[1],r[1]); else out.push([r[0],r[1]]); });
+  return {ok:true, ranges:out};
+}
+
+/* =====================================================================
+   4. REGISTRO DE ANALISTAS E CORES (consistente nas duas abas)
+   ===================================================================== */
+const norm = s => String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/\s+/g,' ').trim();
+function hexToRgb(h){ const n=parseInt(h.slice(1),16); return [n>>16&255, n>>8&255, n&255]; }
+function tint(h,a){ const [r,g,b]=hexToRgb(h); return `rgba(${r},${g},${b},${a})`; }
+function iniciais(n){ const p=String(n).trim().split(/\s+/); return ((p[0]||'')[0]+((p[1]||'')[0]||'')).toUpperCase(); }
+const esc = s => String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+const Analistas = {
+  mapa: new Map(),
+  reset(){ this.mapa = new Map(); UI_CONFIG.analistas.forEach(a=>this.mapa.set(a.chave,{...a, fixo:true})); },
+  chaveFixa(nome){
+    const n=norm(nome), primeiro=n.split(' ')[0];
+    const a=UI_CONFIG.analistas.find(a=>a.apelidos.includes(n)) || UI_CONFIG.analistas.find(a=>a.apelidos.includes(primeiro));
+    return a ? a.chave : null;
+  },
+  // registra nomes desconhecidos em ordem alfabética → cor estável
+  registrarExtras(nomes){
+    const novos=[...new Set(nomes.filter(n=>n && !this.chaveFixa(n)).map(n=>n.trim()))]
+      .filter(n=>!this.mapa.has('x:'+norm(n)))
+      .sort((a,b)=>norm(a).localeCompare(norm(b)));
+    novos.forEach(n=>{
+      const i=[...this.mapa.values()].filter(a=>!a.fixo).length;
+      const cor=UI_CONFIG.coresExtras[i % UI_CONFIG.coresExtras.length];
+      this.mapa.set('x:'+norm(n), {chave:'x:'+norm(n), rotulo:n, cor, fixo:false});
+    });
+  },
+  get(nome){ const k=this.chaveFixa(nome) || 'x:'+norm(nome); return this.mapa.get(k) || {chave:k, rotulo:nome, cor:'#6B7280'}; },
+  porChave(k){ return this.mapa.get(k); }
+};
+function separarResponsaveis(txt){
+  return String(txt||'').split(/\s*(?:\/|,|;|&|\+|\be\b)\s*/i).map(s=>s.trim()).filter(Boolean);
+}
+
+/* =====================================================================
+   5. NORMALIZAÇÃO DOS DADOS (snapshot bruto → modelo de exibição)
+   ===================================================================== */
+function normalizar(snap){
+  const hoje=D.hoje(), ano=D.p(hoje).y, avisosEv=[], avisosVa=[];
+  const linhasEv=(snap.eventos||[]), linhasVa=(snap.ferias||[]);
+  const ehCab = (v, rot) => norm(v).replace(/:$/,'') === rot;
+
+  Analistas.reset();
+  const nomesVa = linhasVa.filter(r=>!ehCab(r.nome,'nome')).map(r=>r.nome);
+  const nomesEv = linhasEv.filter(r=>!ehCab(r.evento,'evento')).flatMap(r=>separarResponsaveis(r.responsavel));
+  Analistas.registrarExtras([...nomesVa, ...nomesEv]);
+
+  // ---- Eventos
+  const eventos=[], vistos=new Set();
+  linhasEv.forEach(r=>{
+    const nome=String(r.evento||'').trim();
+    if(!nome || ehCab(nome,'evento')) return;
+    const resp=separarResponsaveis(r.responsavel).map(n=>Analistas.get(n));
+    const pe=parseDatas(r.datas, ano), pm=parseDatas(r.montagem, ano), pd=parseDatas(r.desmontagem, ano);
+    if(!pe.ok || !pe.ranges.length){
+      avisosEv.push(`Linha ${r.linha} — "${nome}": data ${pe.vazio?'não preenchida':'"'+r.datas+'" não reconhecida'} (evento não exibido).`);
+      return;
+    }
+    if(!pm.ok) avisosEv.push(`Linha ${r.linha} — "${nome}": montagem "${r.montagem}" não reconhecida.`);
+    if(!pd.ok) avisosEv.push(`Linha ${r.linha} — "${nome}": desmontagem "${r.desmontagem}" não reconhecida.`);
+    if(!resp.length) avisosEv.push(`Linha ${r.linha} — "${nome}": sem responsável.`);
+
+    const chave=norm(nome)+'|'+resp.map(a=>a.chave).join(',')+'|'+pe.ranges.join(';');
+    if(vistos.has(chave)) return;  // evita duplicidade
+    vistos.add(chave);
+
+    const diasEv=new Set(); pe.ranges.forEach(([a,b])=>{ for(let d=a;d<=b;d++) diasEv.add(d); });
+    const fase=(rs,tipo)=>{ const out=[]; (rs||[]).forEach(([a,b])=>{ let s=null;
+        for(let d=a;d<=b+1;d++){ const livre=d<=b && !diasEv.has(d); if(livre && s===null) s=d; if(!livre && s!==null){ out.push({tipo,ini:s,fim:d-1}); s=null; } } }); return out; };
+    const segs=[...fase(pm.ok?pm.ranges:[],'montagem'), ...pe.ranges.map(([a,b])=>({tipo:'evento',ini:a,fim:b})), ...fase(pd.ok?pd.ranges:[],'desmontagem')]
+      .sort((a,b)=>a.ini-b.ini);
+    eventos.push({
+      id:'e'+eventos.length, nome, resp, cor:(resp[0]||{cor:'#6B7280'}).cor,
+      segs, ini:Math.min(...segs.map(s=>s.ini)), fim:Math.max(...segs.map(s=>s.fim)),
+      evIni:pe.ranges[0][0], evFim:pe.ranges[pe.ranges.length-1][1],
+      txt:{datas:r.datas, montagem:r.montagem, desmontagem:r.desmontagem}, linha:r.linha
+    });
+  });
+
+  // ---- Férias
+  const ferias=[];
+  linhasVa.forEach(r=>{
+    const nome=String(r.nome||'').trim();
+    if(!nome || ehCab(nome,'nome')) return;
+    if(UI_CONFIG.ignorarAreas.includes(norm(r.area))) return;
+    const p=parseDatas(r.inicio, ano);
+    if(!p.ok){ avisosVa.push(`Linha ${r.linha} — ${nome}: data "${r.inicio}" não reconhecida.`); return; }
+    if(!p.ranges.length) return;   // sem férias cadastradas
+    const a=Analistas.get(nome);
+    let ini=p.ranges[0][0], fim=p.ranges[p.ranges.length-1][1];
+    let dias=parseInt(String(r.dias||'').replace(/\D/g,''),10); if(!(dias>0)) dias=null;
+    if(fim>ini) dias=fim-ini+1;            // período informado diretamente
+    else if(dias) fim=ini+dias-1;          // início + quantidade de dias
+    else fim=null;                         // duração não informada
+    ferias.push({ id:'f'+ferias.length, nome, area:r.area, a, cor:a.cor, ini, fim, dias,
+                  retorno: fim!=null ? D.proxDiaUtil(fim+1) : null, linha:r.linha });
+  });
+  ferias.sort((x,y)=>x.ini-y.ini);
+  return {eventos, ferias, avisosEv, avisosVa};
+}
+
+/* =====================================================================
+   6. INTEGRAÇÃO (camada separada) — Apps Script ou pré-visualização
+   ===================================================================== */
+const Fonte = {
+  noAppsScript: typeof google!=='undefined' && google.script && google.script.run,
+  chamar(fn){
+    return new Promise((res,rej)=>{
+      google.script.run.withSuccessHandler(res)
+        .withFailureHandler(e=>rej(new Error((e&&e.message)||String(e))))[fn]();
+    });
+  },
+  carregar(){
+    if(this.noAppsScript) return this.chamar('obterDados');
+    if(window.__SNAPSHOT__) return Promise.resolve(window.__SNAPSHOT__);
+    return Promise.reject(new Error('Dashboard aberto fora do Google Apps Script.'));
+  },
+  sincronizar(){
+    if(this.noAppsScript) return this.chamar('sincronizarAgora');
+    return new Promise((_,rej)=>setTimeout(()=>rej(new Error('Pré-visualização offline: publique o dashboard pelo Apps Script para sincronizar com a planilha.')),700));
+  }
+};
+
+/* =====================================================================
+   7. ESTADO + CONTROLE DE SINCRONIZAÇÃO (mesmo processo p/ auto e manual)
+   ===================================================================== */
+const Estado = { dados:null, snap:null, hoje:D.hoje(), evMes:null, vaIni:null, filtros:new Set(), fases:true, aba:'eventos' };
+
+const Sync = {
+  emAndamento:false, okEm:0,
+  async executar(origem){
+    if(this.emAndamento) return;
+    this.emAndamento=true; UI.sincronizando(true, origem);
+    try{
+      const snap = origem==='inicial' ? await Fonte.carregar() : await Fonte.sincronizar();
+      if(!snap || !Array.isArray(snap.eventos) || !Array.isArray(snap.ferias)) throw new Error('Resposta inválida da planilha.');
+      const dados = normalizar(snap);        // só substitui se tudo foi lido com sucesso
+      Estado.snap=snap; Estado.dados=dados;
+      this.okEm = Date.parse(snap.sincronizadoEm) || Date.now();
+      UI.banner(null);
+      if(snap.ultimoErro){ try{ const e=JSON.parse(snap.ultimoErro); UI.banner('warn', `A última sincronização automática falhou (${new Date(e.em).toLocaleString('pt-BR',{timeZone:UI_CONFIG.fuso})}). Exibindo os últimos dados válidos.`); }catch(_){} }
+      if(snap.aviso) UI.toast(snap.aviso);
+      else if(origem==='manual') UI.toast('Dados atualizados com sucesso');
+      Render.tudo();
+      // snapshot do servidor mais velho que o intervalo (gatilho inativo)? força nova leitura
+      if(origem==='inicial' && Fonte.noAppsScript && Date.now()-this.okEm > (UI_CONFIG.intervaloHoras*3600e3 + 15*60e3)){
+        setTimeout(()=>this.executar('auto'), 50);
+      }
+    }catch(e){
+      const msg=(e&&e.message)||'Erro de conexão.';
+      UI.banner('err', `<b>Não foi possível atualizar.</b> ${esc(msg)} ${Estado.dados?'Os últimos dados carregados com sucesso foram mantidos.':''}`, true);
+      if(origem==='manual') UI.toast('Falha na atualização', true);
+      if(!Estado.dados) UI.semDados(msg);
+    }finally{
+      this.emAndamento=false; UI.sincronizando(false); UI.rotuloSync();
+    }
+  },
+  agendar(){
+    setInterval(()=>this.verificar(), 60e3);
+    document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) this.verificar(); });
+  },
+  verificar(){
+    const h=D.hoje(); if(h!==Estado.hoje){ Estado.hoje=h; if(Estado.dados){ Estado.dados=normalizar(Estado.snap); Render.tudo(); } }
+    if(this.okEm && Date.now()-this.okEm >= UI_CONFIG.intervaloHoras*3600e3) this.executar('auto');
+  }
+};
+
+/* =====================================================================
+   8. UI GERAL
+   ===================================================================== */
+const $ = id => document.getElementById(id);
+const UI = {
+  sincronizando(on, origem){
+    const b=$('btnSync'); b.disabled=on; b.classList.toggle('spin',on);
+    const info=$('syncInfo');
+    if(on){ info.className='sync-info loading'; $('syncLabel').textContent= origem==='inicial'?'Carregando dados…':'Sincronizando com a planilha…'; }
+  },
+  rotuloSync(){
+    const info=$('syncInfo');
+    if(!Sync.okEm){ info.className='sync-info err'; $('syncLabel').textContent='Sem dados sincronizados'; return; }
+    const d=new Date(Sync.okEm);
+    const dt=d.toLocaleDateString('pt-BR',{timeZone:UI_CONFIG.fuso}), hr=d.toLocaleTimeString('pt-BR',{timeZone:UI_CONFIG.fuso,hour:'2-digit',minute:'2-digit'});
+    info.className='sync-info'+($('banner').classList.contains('err')?' err':'');
+    $('syncLabel').innerHTML=`<span class="txt-long">Última atualização: </span>${dt} às ${hr}`;
+    info.title=`Sincronização automática a cada ${UI_CONFIG.intervaloHoras} horas`;
+  },
+  banner(tipo, html, retry){
+    const b=$('banner');
+    if(!tipo){ b.className='banner hidden'; b.innerHTML=''; return; }
+    b.className='banner '+tipo;
+    b.innerHTML=`<span>${tipo==='err'?html:esc(html)}</span>`+(retry?'<button id="btnRetry">Tentar novamente</button>':'');
+    if(retry) $('btnRetry').onclick=()=>Sync.executar('manual');
+  },
+  toast(msg, err){
+    const t=$('toast'); t.textContent=msg; t.className='toast show'+(err?' err':'');
+    clearTimeout(this._t); this._t=setTimeout(()=>t.className='toast'+(err?' err':''), 3200);
+  },
+  semDados(msg){
+    $('loading').innerHTML=`<div class="empty"><b>Não foi possível carregar os dados</b>${esc(msg)}<br><br><button class="ghost-btn" onclick="Sync.executar('manual')">Tentar novamente</button></div>`;
+    $('loading').classList.remove('hidden');
+  },
+  modal(head, body){ $('mHead').innerHTML=head; $('mBody').innerHTML=body; $('modal').classList.remove('hidden'); },
+  fecharModal(){ $('modal').classList.add('hidden'); },
+  trocarAba(aba){
+    Estado.aba=aba;
+    document.querySelectorAll('.tabs button').forEach(b=>b.classList.toggle('active', b.dataset.tab===aba));
+    if(!Estado.dados) return;
+    document.querySelectorAll('.tab').forEach(s=>s.classList.toggle('active', s.id==='tab-'+aba));
+  }
+};
+const whoChip = a => `<span class="who-chip"><i style="background:${a.cor}"></i>${esc(a.rotulo)}</span>`;
+
+/* =====================================================================
+   9. RENDER — ABA EVENTOS
+   ===================================================================== */
+const Render = {
+  tudo(){
+    $('loading').classList.add('hidden');
+    UI.trocarAba(Estado.aba);
+    this.eventos(); this.ferias();
+  },
+
+  eventos(){
+    const {eventos, avisosEv} = Estado.dados, hoje=Estado.hoje;
+    if(!Estado.evMes){ const p=D.p(hoje); Estado.evMes={y:p.y,m:p.m}; }
+    const {y,m}=Estado.evMes, mIni=D.dn(y,m,1), mFim=D.dn(y,m,D.diasNoMes(y,m));
+    $('evTitle').textContent=MESES_L[m-1]+' '+y;
+
+    const ativo = ev => Estado.filtros.size===0 || ev.resp.some(a=>Estado.filtros.has(a.chave)) || (!ev.resp.length && Estado.filtros.has('_'));
+    const spanDe = ev => Estado.fases ? [ev.ini, ev.fim] : [ev.evIni, ev.evFim];
+    const noMes = eventos.filter(ev=>{ const [a,b]=spanDe(ev); return a<=mFim && b>=mIni; });
+
+    // KPIs
+    const visiveis=noMes.filter(ativo);
+    const prox7=eventos.filter(ev=>ativo(ev) && ev.evIni<=hoje+7 && ev.evFim>=hoje);
+    const futuro=eventos.filter(ev=>ativo(ev) && ev.evFim>=hoje).sort((a,b)=>a.evIni-b.evIni)[0];
+    $('evKpis').innerHTML=`
+      <div class="card kpi"><span class="lbl">Eventos em ${MESES[m-1]}</span><span class="val">${visiveis.length}</span><span class="sub">${[...new Set(visiveis.flatMap(e=>e.resp.map(a=>a.rotulo)))].join(' · ')||'—'}</span></div>
+      <div class="card kpi"><span class="lbl">Próximos 7 dias</span><span class="val">${prox7.length}</span><span class="sub">${prox7.slice(0,3).map(e=>esc(e.nome)).join(' · ')||'Nenhum evento'}</span></div>
+      <div class="card kpi"><span class="lbl">Próximo evento</span><span class="val" style="font-size:19px;padding:4px 0 2px">${futuro?esc(futuro.nome):'—'}</span>
+        <span class="sub">${futuro?(futuro.evIni<=hoje?'Acontecendo agora':D.intervalo(futuro.evIni,futuro.evFim)+' · '+D.quando(futuro.evIni-hoje))+' · '+futuro.resp.map(a=>a.rotulo).join(', '):'Nenhum evento futuro na planilha'}</span></div>`;
+
+    this.volume();
+
+    // Legenda (também é filtro)
+    const cont={}; noMes.forEach(ev=>ev.resp.forEach(a=>cont[a.chave]=(cont[a.chave]||0)+1));
+    const naLegenda=[...Analistas.mapa.values()].filter(a=>a.fixo || cont[a.chave]);
+    $('evLegend').innerHTML=naLegenda.map(a=>`<button class="chip ${Estado.filtros.size&&!Estado.filtros.has(a.chave)?'off':''}" data-k="${esc(a.chave)}" title="Filtrar por ${esc(a.rotulo)}">
+        <span class="sw" style="background:${a.cor}"></span>${esc(a.rotulo)} <span class="n">${cont[a.chave]||0}</span></button>`).join('');
+    $('evLegend').querySelectorAll('.chip').forEach(c=>c.onclick=()=>{
+      const k=c.dataset.k;
+      if(Estado.filtros.has(k)) Estado.filtros.delete(k); else Estado.filtros.add(k);
+      if(Estado.filtros.size===naLegenda.length) Estado.filtros.clear();
+      this.eventos();
+    });
+
+    // Grade
+    const ini=mIni-D.p(mIni).w, semanas=Math.ceil((D.p(mIni).w + (mFim-mIni+1))/7);
+    const mobile=window.matchMedia('(max-width:760px)').matches;
+    const maxL=mobile?5:UI_CONFIG.maxFaixasDesktop;
+    let html='';
+    for(let w=0; w<semanas; w++){
+      const ws=ini+w*7, we=ws+6;
+      const lista=eventos.filter(ativo).map(ev=>({ev, span:spanDe(ev)}))
+        .filter(o=>o.span[0]<=we && o.span[1]>=ws)
+        .sort((a,b)=>a.span[0]-b.span[0] || (b.span[1]-b.span[0])-(a.span[1]-a.span[0]) || a.ev.nome.localeCompare(b.ev.nome));
+      const fimFaixa=[]; const ocultos=Array(7).fill(0); const pos=[];
+      lista.forEach(o=>{
+        const a=Math.max(o.span[0],ws), b=Math.min(o.span[1],we);
+        let l=fimFaixa.findIndex(x=>x<a); if(l<0){ l=fimFaixa.length; fimFaixa.push(b);} else fimFaixa[l]=b;
+        if(l>=maxL){ for(let d=a; d<=b; d++) ocultos[d-ws]++; } else pos.push({...o, l});
+      });
+      const faixas=Math.min(fimFaixa.length, maxL), temMais=ocultos.some(Boolean);
+      const rows=`30px ${faixas?`repeat(${faixas}, var(--lane))`:''} ${temMais?'18px':''} minmax(6px,1fr)`;
+      html+=`<div class="week" style="grid-template-rows:${rows}">`;
+      for(let c=0;c<7;c++){
+        const dn=ws+c, p=D.p(dn);
+        html+=`<div class="day ${p.m!==m?'out':''} ${dn===hoje?'today':''} ${p.w===0||p.w===6?'weekend':''}" style="grid-column:${c+1}"><span class="dnum">${p.d}</span></div>`;
+      }
+      pos.forEach(({ev,l})=>{
+        ev.segs.filter(s=>Estado.fases || s.tipo==='evento').forEach((s,i,arr)=>{
+          if(s.fim<ws || s.ini>we) return;
+          const a=Math.max(s.ini,ws), b=Math.min(s.fim,we);
+          const prev=arr[i-1], next=arr[i+1];
+          const cls=[s.tipo!=='evento'?'phase':'', s.ini<ws?'cont-l':'', s.fim>we?'cont-r':'',
+                     prev&&prev.fim===s.ini-1&&a===s.ini?'join-l':'', next&&next.ini===s.fim+1&&b===s.fim?'join-r':'', ev.fim<hoje?'past':''].join(' ');
+          const rot = s.tipo==='evento' ? `<span class="t">${esc(ev.nome)}</span><span class="who">${esc(ev.resp.map(r=>r.rotulo).join(', '))}</span>`
+                    : `<span class="t">${s.tipo==='montagem'?'Montagem':'Desmontagem'}${(b-a)>=1||!ev.segs.some(z=>z.tipo==='evento'&&z.ini<=we&&z.fim>=ws)?' · '+esc(ev.nome):''}</span>`;
+          const bg = s.tipo==='evento' ? ev.cor : tint(ev.cor,.16);
+          html+=`<button class="bar ${cls}" data-id="${ev.id}" style="--c:${ev.cor};grid-column:${a-ws+1} / span ${b-a+1};grid-row:${l+2};background-color:${bg}"
+                   title="${esc(ev.nome)} — ${esc(ev.resp.map(r=>r.rotulo).join(', '))}\n${s.tipo==='evento'?'Evento':s.tipo==='montagem'?'Montagem':'Desmontagem'}: ${D.intervalo(s.ini,s.fim)}">${rot}</button>`;
+        });
+      });
+      if(temMais) ocultos.forEach((n,c)=>{ if(n) html+=`<button class="more" data-day="${ws+c}" style="grid-column:${c+1};grid-row:${faixas+2}">+${n} mais</button>`; });
+      html+='</div>';
+    }
+    $('evGrid').innerHTML=html;
+    $('evGrid').querySelectorAll('.bar').forEach(b=>b.onclick=()=>this.detalheEvento(b.dataset.id));
+    $('evGrid').querySelectorAll('.more').forEach(b=>b.onclick=()=>this.diaEventos(+b.dataset.day));
+
+    // Agenda do mês
+    $('agTitle').textContent='Agenda de '+MESES_L[m-1].toLowerCase();
+    const ag=visiveis.slice().sort((a,b)=>a.evIni-b.evIni || a.nome.localeCompare(b.nome));
+    $('evAgenda').innerHTML = ag.length ? ag.map(ev=>{
+      const p=D.p(ev.evIni), fases=ev.segs.filter(s=>s.tipo!=='evento');
+      const st = ev.evFim<hoje?'<span class="tag done">Realizado</span>' : ev.evIni<=hoje?'<span class="tag now">Hoje</span>' : ev.evIni-hoje<=7?`<span class="tag soon">${D.quando(ev.evIni-hoje)}</span>`:'';
+      return `<button class="ag ${ev.evFim<hoje?'past':''}" data-id="${ev.id}">
+        <span class="stripe" style="background:${ev.cor}"></span>
+        <span class="date"><b>${D.dd(p.d)}</b><span>${SEM[p.w]}</span></span>
+        <span class="info"><span class="nm">${esc(ev.nome)} ${st}</span>
+          <span class="meta">${ev.resp.map(whoChip).join(' ')} · ${D.intervalo(ev.evIni,ev.evFim)}</span>
+          ${fases.length?`<span class="meta" style="display:block;color:var(--text-3)">${fases.map(f=>(f.tipo==='montagem'?'Montagem ':'Desmontagem ')+D.intervalo(f.ini,f.fim)).join(' · ')}</span>`:''}
+        </span></button>`;
+    }).join('') : `<div class="empty"><b>Nenhum evento neste mês</b>${Estado.filtros.size?'Ajuste os filtros da legenda.':'Navegue para outros meses.'}</div>`;
+    $('evAgenda').querySelectorAll('.ag').forEach(b=>b.onclick=()=>this.detalheEvento(b.dataset.id));
+
+    $('evNotes').innerHTML = avisosEv.length ? `<details class="notes"><summary>${avisosEv.length} aviso(s) de leitura da aba Eventos</summary><ul>${avisosEv.map(a=>`<li>${esc(a)}</li>`).join('')}</ul></details>` : '';
+    if(!eventos.length) $('evAgenda').innerHTML=`<div class="empty"><b>Nenhum evento encontrado na planilha</b>Cadastre eventos na aba EVENTOS e clique em Atualizar agora.</div>`;
+  },
+
+  // Volume total por analista — somente eventos que ainda não terminaram (independe do mês exibido)
+  volume(){
+    const {eventos}=Estado.dados, hoje=Estado.hoje;
+    const futuros=eventos.filter(ev=>ev.evFim>=hoje);
+    // dias de evento = dias distintos da agenda (dois eventos no mesmo dia contam 1 dia)
+    const porA=new Map(), novo=a=>({a,n:0,dias:0,set:new Set(),prox:null});
+    [...Analistas.mapa.values()].filter(a=>a.fixo).forEach(a=>porA.set(a.chave,novo(a)));
+    futuros.forEach(ev=>ev.resp.forEach(a=>{
+      if(!porA.has(a.chave)) porA.set(a.chave,novo(a));
+      const o=porA.get(a.chave); o.n++;
+      ev.segs.filter(s=>s.tipo==='evento').forEach(s=>{ for(let d=Math.max(s.ini,hoje); d<=s.fim; d++) o.set.add(d); });
+      o.dias=o.set.size;
+      if(!o.prox || ev.evIni<o.prox.evIni) o.prox=ev;
+    }));
+    const lista=[...porA.values()].sort((x,y)=>y.n-x.n || y.dias-x.dias || x.a.rotulo.localeCompare(y.a.rotulo));
+    const max=Math.max(1,...lista.map(o=>o.n));
+    const plural=(n,s,p)=>n===1?s:p;
+    $('evVolume').innerHTML=lista.map(o=>`
+      <button class="card vol ${Estado.filtros.size&&!Estado.filtros.has(o.a.chave)?'off':''}" data-k="${esc(o.a.chave)}" title="Filtrar calendário por ${esc(o.a.rotulo)}">
+        <span class="nm"><i style="background:${o.a.cor}"></i>${esc(o.a.rotulo)}</span>
+        <span class="row"><span class="big" style="color:${o.a.cor}">${o.n}</span>
+          <span class="desc">${plural(o.n,'projeto','projetos')} · ${o.dias} ${plural(o.dias,'dia','dias')} de evento</span></span>
+        <span class="next">${o.prox?'Próximo: '+esc(o.prox.nome)+' · '+(o.prox.evIni<=hoje?'hoje':D.curta(o.prox.evIni)):'Sem eventos futuros'}</span>
+        <span class="track"><span class="fill" style="display:block;width:${o.n/max*100}%;background:${o.a.cor}"></span></span>
+      </button>`).join('');
+    $('evVolume').querySelectorAll('.vol').forEach(c=>c.onclick=()=>{
+      const k=c.dataset.k;
+      if(Estado.filtros.size===1 && Estado.filtros.has(k)) Estado.filtros.clear(); else { Estado.filtros.clear(); Estado.filtros.add(k); }
+      this.eventos();
+    });
+
+    // Pico: dia futuro com mais eventos acontecendo
+    const cont=new Map();
+    futuros.forEach(ev=>ev.segs.filter(s=>s.tipo==='evento').forEach(s=>{ for(let d=Math.max(s.ini,hoje); d<=s.fim; d++) cont.set(d,(cont.get(d)||0)+1); }));
+    let pico=null; cont.forEach((n,d)=>{ if(!pico || n>pico.n || (n===pico.n && d<pico.d)) pico={d,n}; });
+    $('evPico').innerHTML = pico ? `Pico: <b>${D.curta(pico.d)} (${SEM[D.p(pico.d).w].toLowerCase()})</b> · ${pico.n} ${plural(pico.n,'evento','eventos')} no mesmo dia · ${futuros.length} no total` : 'Nenhum evento futuro';
+  },
+
+  detalheEvento(id){
+    const ev=Estado.dados.eventos.find(e=>e.id===id); if(!ev) return;
+    const linha=(t,s)=>s.length?`<dt>${t}</dt><dd>${s.map(x=>D.intervalo(x.ini,x.fim)+' '+D.p(x.fim).y).join(' · ')}</dd>`:'';
+    const dur=ev.segs.filter(s=>s.tipo==='evento').reduce((n,s)=>n+s.fim-s.ini+1,0);
+    UI.modal(`<h3>${esc(ev.nome)}</h3><p>${ev.resp.map(whoChip).join(' ')}</p>`,
+      `<dl class="kv">${linha('Montagem',ev.segs.filter(s=>s.tipo==='montagem'))}${linha('Evento',ev.segs.filter(s=>s.tipo==='evento'))}${linha('Desmontagem',ev.segs.filter(s=>s.tipo==='desmontagem'))}
+        <dt>Duração</dt><dd>${dur} dia${dur>1?'s':''} de evento</dd>
+        <dt>Situação</dt><dd>${ev.evFim<Estado.hoje?'Realizado':ev.evIni<=Estado.hoje?'Acontecendo agora':'Começa '+D.quando(ev.evIni-Estado.hoje)}</dd>
+        <dt>Na planilha</dt><dd style="font-weight:500;color:var(--text-2)">Linha ${ev.linha} · “${esc(ev.txt.datas)}”</dd></dl>`);
+  },
+  diaEventos(dn){
+    const evs=Estado.dados.eventos.filter(ev=>ev.segs.some(s=>(Estado.fases||s.tipo==='evento') && s.ini<=dn && s.fim>=dn));
+    const p=D.p(dn);
+    UI.modal(`<h3>${SEM[p.w]}, ${D.br(dn)}</h3><p>${evs.length} evento(s)</p>`,
+      evs.map(ev=>{ const s=ev.segs.find(s=>s.ini<=dn&&s.fim>=dn);
+        return `<button class="ag" data-id="${ev.id}"><span class="stripe" style="background:${ev.cor}"></span><span class="info"><span class="nm">${esc(ev.nome)}</span>
+          <span class="meta">${ev.resp.map(whoChip).join(' ')} · ${s.tipo==='evento'?'Evento':s.tipo==='montagem'?'Montagem':'Desmontagem'} · ${D.intervalo(ev.evIni,ev.evFim)}</span></span></button>`; }).join(''));
+    $('mBody').querySelectorAll('.ag').forEach(b=>b.onclick=()=>this.detalheEvento(b.dataset.id));
+  },
+
+  /* ===================================================================
+     10. RENDER — ABA FÉRIAS
+     =================================================================== */
+  ferias(){
+    const {ferias, avisosVa}=Estado.dados, hoje=Estado.hoje;
+    if(!Estado.vaIni){ const p=D.p(hoje); Estado.vaIni={y:p.y,m:p.m}; }
+    const fimDe = f => f.fim!=null ? f.fim : f.ini;
+
+    // Cards
+    const agora=ferias.filter(f=>f.ini<=hoje && fimDe(f)>=hoje);
+    const prox=ferias.filter(f=>f.ini>hoje).sort((a,b)=>a.ini-b.ini);
+    $('nowCount').textContent=agora.length; $('nextCount').textContent=prox.length;
+    const av = f => `<span class="avatar" style="background:${f.cor}">${esc(iniciais(f.nome))}</span>`;
+    $('vacNow').innerHTML = agora.length ? agora.map(f=>`
+      <div class="person">${av(f)}<div class="info"><div class="nm">${esc(f.nome)}</div>
+        <div class="meta">${f.fim!=null?`${D.br(f.ini)} a ${D.br(f.fim)} · ${f.dias} dias`:`Desde ${D.br(f.ini)} · duração não informada`}</div></div>
+        <div class="side">${f.retorno?`<div class="small">RETORNO</div><div class="big">${D.curta(f.retorno)}</div><div class="small">${D.quando(f.retorno-hoje)}</div>`:'<div class="small">RETORNO<br>a definir</div>'}</div></div>`).join('')
+      : `<div class="empty"><b>Ninguém de férias hoje</b>Toda a equipe está disponível.</div>`;
+    $('vacNext').innerHTML = prox.length ? prox.map((f,i)=>`
+      <div class="person ${i===0?'first':''}">${av(f)}<div class="info"><div class="nm">${esc(f.nome)} ${f.ini-hoje<=30?'<span class="tag soon">em breve</span>':''}</div>
+        <div class="meta">${f.fim!=null?`${D.br(f.ini)} a ${D.br(f.fim)} · ${f.dias} dias`:`Início ${D.br(f.ini)} · duração não informada`}${f.retorno?` · retorno ${D.br(f.retorno)}`:''}</div></div>
+        <div class="side"><div class="big">${f.ini-hoje}</div><div class="small">${f.ini-hoje===1?'DIA':'DIAS'} P/ INÍCIO</div></div></div>`).join('')
+      : `<div class="empty"><b>Nenhuma férias programada</b>Cadastre as próximas férias na planilha.</div>`;
+
+    // Navegação do semestre
+    const meses=[...Array(6)].map((_,i)=>D.addMes(Estado.vaIni.y, Estado.vaIni.m, i));
+    const jIni=D.dn(meses[0].y,meses[0].m,1), uM=meses[5], jFim=D.dn(uM.y,uM.m,D.diasNoMes(uM.y,uM.m));
+    $('vaTitle').textContent=`${MESES_L[meses[0].m-1]} ${meses[0].y} – ${MESES_L[uM.m-1]} ${uM.y}`;
+    const naJanela=ferias.filter(f=>f.ini<=jFim && fimDe(f)>=jIni);
+
+    // Legenda: todos com férias cadastradas (esmaecidos se fora do semestre)
+    const pessoas=[]; const vistas=new Set();
+    ferias.forEach(f=>{ if(!vistas.has(f.a.chave)){ vistas.add(f.a.chave); pessoas.push(f); } });
+    $('vaLegend').innerHTML=pessoas.map(f=>`<span class="chip ${naJanela.some(x=>x.a.chave===f.a.chave)?'':'off'}"><span class="sw" style="background:${f.cor}"></span>${esc(f.a.fixo?f.a.rotulo:f.nome.split(' ')[0])}</span>`).join('');
+
+    // 6 calendários
+    $('vaGrid').innerHTML=meses.map(({y,m})=>{
+      const mi=D.dn(y,m,1), mf=D.dn(y,m,D.diasNoMes(y,m));
+      const doMes=ferias.filter(f=>f.ini<=mf && fimDe(f)>=mi);
+      const fimL=[]; const lane=new Map();
+      doMes.forEach(f=>{ let l=fimL.findIndex(x=>x<f.ini); if(l<0){l=fimL.length; fimL.push(fimDe(f));} else fimL[l]=fimDe(f); lane.set(f.id,l); });
+      const off=D.p(mi).w;
+      let cells='';
+      for(let i=0;i<off;i++) cells+='<div class="mc out"><span class="n">.</span></div>';
+      for(let dn=mi; dn<=mf; dn++){
+        const p=D.p(dn), quem=doMes.filter(f=>f.ini<=dn && fimDe(f)>=dn);
+        let strips='';
+        for(let l=0;l<fimL.length;l++){
+          const f=quem.find(x=>lane.get(x.id)===l);
+          if(!f){ strips+='<div class="strip"></div>'; continue; }
+          if(f.fim==null){ strips+=`<div class="strip open" style="--c:${f.cor}"></div>`; continue; }
+          const s=(dn===f.ini||p.w===0)?' s':'', e=(dn===f.fim||p.w===6)?' e':'';
+          strips+=`<div class="strip on${s}${e}" style="--c:${f.cor}"></div>`;
+        }
+        const tip=quem.map(f=>`${f.nome}: ${f.fim!=null?D.br(f.ini)+' a '+D.br(f.fim):'início '+D.br(f.ini)}`).join('\n');
+        const bg=quem.length===1?`background:${tint(quem[0].cor,.08)}`:quem.length>1?'background:rgba(22,27,38,.05)':'';
+        cells+=`<div class="mc ${dn===hoje?'today':''} ${p.w===0||p.w===6?'weekend':''} ${quem.length?'has':''}" ${quem.length?`data-day="${dn}"`:''} style="${bg}" title="${esc(tip)}"><span class="n">${p.d}</span>${strips}</div>`;
+      }
+      const qtd=new Set(doMes.map(f=>f.a.chave)).size;
+      return `<div class="card mini"><h4>${MESES_L[m-1]} <span>${y}${qtd?` · ${qtd} pessoa${qtd>1?'s':''}`:''}</span></h4>
+        <div class="mini-head">${['D','S','T','Q','Q','S','S'].map(x=>`<div>${x}</div>`).join('')}</div><div class="mini-grid">${cells}</div></div>`;
+    }).join('');
+    $('vaGrid').querySelectorAll('.mc.has').forEach(c=>c.onclick=()=>{
+      const dn=+c.dataset.day, quem=ferias.filter(f=>f.ini<=dn && fimDe(f)>=dn), p=D.p(dn);
+      UI.modal(`<h3>${SEM[p.w]}, ${D.br(dn)}</h3><p>${quem.length} pessoa(s) ausente(s)</p>`,
+        quem.map(f=>`<div class="person" style="padding:10px 0">${av(f)}<div class="info"><div class="nm">${esc(f.nome)}</div>
+          <div class="meta">${f.fim!=null?`${D.br(f.ini)} a ${D.br(f.fim)} · retorno ${D.br(f.retorno)}`:`Início ${D.br(f.ini)} · duração não informada`}</div></div></div>`).join(''));
+    });
+
+    // Tabela do semestre
+    $('vaTable').innerHTML = `<div class="panel-h">Períodos no semestre</div>` + (naJanela.length ?
+      `<div class="vt-row h"><div>Nome</div><div class="hide-m">Área</div><div>Período</div><div class="hide-m">Dias</div><div class="hide-m">Retorno</div><div>Situação</div></div>` +
+      naJanela.map(f=>{
+        const st= f.ini<=hoje&&fimDe(f)>=hoje?'<span class="tag now">Em férias</span>' : f.ini>hoje?`<span class="tag soon">${D.quando(f.ini-hoje)}</span>`:'<span class="tag done">Concluída</span>';
+        return `<div class="vt-row"><div class="nm"><i style="background:${f.cor}"></i>${esc(f.nome)}</div><div class="hide-m">${esc(f.area||'—')}</div>
+          <div>${f.fim!=null?D.br(f.ini)+' a '+D.br(f.fim):D.br(f.ini)+' (início)'}</div><div class="hide-m">${f.dias||'—'}</div>
+          <div class="hide-m">${f.retorno?D.br(f.retorno):'—'}</div><div>${st}</div></div>`;}).join('')
+      : `<div class="empty"><b>Nenhuma férias neste semestre</b>Use as setas para consultar outros períodos.</div>`);
+
+    $('vaNotes').innerHTML = avisosVa.length ? `<details class="notes"><summary>${avisosVa.length} aviso(s) de leitura da aba Férias</summary><ul>${avisosVa.map(a=>`<li>${esc(a)}</li>`).join('')}</ul></details>` : '';
+  }
+};
+
+/* =====================================================================
+   11. EVENTOS DE INTERFACE + INICIALIZAÇÃO
+   ===================================================================== */
+document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>UI.trocarAba(b.dataset.tab));
+$('btnSync').onclick=()=>Sync.executar('manual');
+$('evPrev').onclick=()=>{ Estado.evMes=D.addMes(Estado.evMes.y,Estado.evMes.m,-1); Render.eventos(); };
+$('evNext').onclick=()=>{ Estado.evMes=D.addMes(Estado.evMes.y,Estado.evMes.m,1); Render.eventos(); };
+$('evToday').onclick=()=>{ Estado.evMes=null; Render.eventos(); };
+$('evPhases').onchange=e=>{ Estado.fases=e.target.checked; Render.eventos(); };
+$('vaPrev').onclick=()=>{ Estado.vaIni=D.addMes(Estado.vaIni.y,Estado.vaIni.m,-6); Render.ferias(); };
+$('vaNext').onclick=()=>{ Estado.vaIni=D.addMes(Estado.vaIni.y,Estado.vaIni.m,6); Render.ferias(); };
+$('vaToday').onclick=()=>{ Estado.vaIni=null; Render.ferias(); };
+$('mClose').onclick=UI.fecharModal;
+$('modal').onclick=e=>{ if(e.target.id==='modal') UI.fecharModal(); };
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') UI.fecharModal(); });
+let _rz; window.addEventListener('resize',()=>{ clearTimeout(_rz); _rz=setTimeout(()=>{ if(Estado.dados) Render.eventos(); },200); });
+
+Sync.executar('inicial');
+Sync.agendar();
+</script>
+</body>
+</html>
